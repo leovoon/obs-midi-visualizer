@@ -19,9 +19,9 @@ jobs:
     env:
       build_config: RelWithDebInfo
       DepsBasePath: 'D:\obs-deps'
-      DepsPath: 'D:\obs-deps\win64'
+      DepsPath: 'D:\obs-deps'          # Flat extraction → root is DepsPath
       QtBaseDir: 'D:\Qt'
-      QTDIR: 'D:\Qt\win64'
+      QTDIR: 'D:\Qt'                   # Flat extraction → root is QTDIR
       OBSPath: 'D:\obs-studio'
     steps:
       - name: Checkout Plugin
@@ -30,40 +30,47 @@ jobs:
           submodules: true
 
       - name: Cache OBS Dependencies
+        id: cache-deps
         uses: actions/cache@v4
         with:
           path: ${{ env.DepsBasePath }}
-          key: obs-deps-${{ runner.os }}-${{ hashFiles('ci/windows/download-obs-deps.cmd') }}  # Update hash if script changes
+          key: obs-deps-${{ runner.os }}-${{ hashFiles('ci/windows/download-obs-deps.cmd') }}  # Adjust hash file if you keep/update the script
 
-      - name: Download OBS Dependencies
+      - name: Download & Extract OBS Dependencies
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
-          mkdir ${{ env.DepsBasePath }}
+          mkdir "${{ env.DepsBasePath }}" -Force
           Invoke-WebRequest -Uri "https://github.com/obsproject/obs-deps/releases/download/2025-08-23/windows-deps-2025-08-23-x64.zip" -OutFile "deps.zip"
-          Expand-Archive -Path "deps.zip" -DestinationPath ${{ env.DepsBasePath }}
-          Move-Item -Path "${{ env.DepsBasePath }}\windows-deps-2025-08-23-x64" -Destination ${{ env.DepsPath }}
+          Expand-Archive -Path "deps.zip" -DestinationPath "${{ env.DepsBasePath }}" -Force
+          Remove-Item "deps.zip" -Force
+          # Debug: List contents to verify flat extraction
+          Get-ChildItem "${{ env.DepsBasePath }}" -Recurse | Select-Object FullName
         shell: pwsh
 
-      - name: Cache Qt
+      - name: Cache Qt6
+        id: cache-qt
         uses: actions/cache@v4
         with:
           path: ${{ env.QtBaseDir }}
-          key: qt-deps-${{ runner.os }}-${{ env.build_config }}-${{ hashFiles('ci/windows/install-qt-win.cmd') }}  # Update if Qt install changes
+          key: qt6-${{ runner.os }}-${{ env.build_config }}-${{ hashFiles('ci/windows/install-qt-win.cmd') }}  # Adjust if needed
 
-      - name: Download Qt
+      - name: Download & Extract Qt6 (RelWithDebInfo variant)
         if: steps.cache-qt.outputs.cache-hit != 'true'
         run: |
-          mkdir ${{ env.QtBaseDir }}
-          Invoke-WebRequest -Uri "https://github.com/obsproject/obs-deps/releases/download/2025-08-23/windows-deps-qt6-2025-08-23-x64-${{ env.build_config }}.zip" -OutFile "qt.zip"
-          Expand-Archive -Path "qt.zip" -DestinationPath ${{ env.QtBaseDir }}
-          Move-Item -Path "${{ env.QtBaseDir }}\windows-deps-qt6-2025-08-23-x64" -Destination ${{ env.QTDIR }}
+          mkdir "${{ env.QtBaseDir }}" -Force
+          Invoke-WebRequest -Uri "https://github.com/obsproject/obs-deps/releases/download/2025-08-23/windows-deps-qt6-2025-08-23-x64-RelWithDebInfo.zip" -OutFile "qt.zip"
+          Expand-Archive -Path "qt.zip" -DestinationPath "${{ env.QtBaseDir }}" -Force
+          Remove-Item "qt.zip" -Force
+          # Debug: List contents
+          Get-ChildItem "${{ env.QtBaseDir }}" -Recurse | Select-Object FullName
         shell: pwsh
 
       - name: Cache OBS Studio Build
+        id: cache-obs
         uses: actions/cache@v4
         with:
           path: ${{ env.OBSPath }}
-          key: obs-build-${{ runner.os }}-${{ env.build_config }}-${{ hashFiles('**/CMakeLists.txt') }}  # Hash OBS sources
+          key: obs-build-${{ runner.os }}-${{ env.build_config }}-${{ hashFiles('ci/windows/prepare-obs-windows.cmd') }}  # Or better: hash OBS CMakeLists.txt after checkout
 
       - name: Checkout OBS Studio
         if: steps.cache-obs.outputs.cache-hit != 'true'
@@ -73,10 +80,16 @@ jobs:
           path: obs-studio
           submodules: recursive
 
-      - name: Configure OBS Studio
+      - name: Configure OBS Studio (using preset)
         if: steps.cache-obs.outputs.cache-hit != 'true'
         working-directory: ${{ env.OBSPath }}
-        run: cmake --preset windows-x64 -DDepsPath="${{ env.DepsPath }}" -DQTDIR="${{ env.QTDIR }}" -DENABLE_BROWSER=OFF -DENABLE_VLC=OFF  # Add other flags as needed for your plugin
+        run: |
+          cmake --preset windows-x64 ^
+            -DDepsPath="${{ env.DepsPath }}" ^
+            -DQTDIR="${{ env.QTDIR }}" ^
+            -DENABLE_BROWSER=OFF ^
+            -DENABLE_VLC=OFF ^
+            # Add any other flags your plugin requires (e.g. -DENABLE_SCRIPTING=ON)
         shell: cmd
 
       - name: Build OBS Studio
@@ -90,11 +103,14 @@ jobs:
 
       - name: Configure Plugin
         run: |
-          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 ^
+          cmake -S . -B build ^
+            -G "Visual Studio 17 2022" -A x64 ^
             -DCMAKE_BUILD_TYPE=${{ env.build_config }} ^
             -DOBS_SRC_DIR=${{ env.OBSPath }} ^
             -DCMAKE_PREFIX_PATH="${{ env.QTDIR }};${{ env.DepsPath }}" ^
-            # Add other plugin-specific CMake args here, e.g., -DOBS_INSTALL_DIR=${{ env.OBSPath }}\build_x64\rundir\${{ env.build_config }}
+            # If your plugin CMakeLists.txt expects OBS via find_package(OBS REQUIRED), add:
+            # -DOBS_PATH="${{ env.OBSPath }}/build/windows-x64/${{ env.build_config }}"  (adjust if preset binaryDir differs)
+            # Or other plugin-specific vars
         shell: cmd
 
       - name: Build Plugin
@@ -102,8 +118,11 @@ jobs:
         shell: cmd
 
       - name: Package Plugin
-        run: ./ci/windows/package-windows.cmd  # Update this script if needed to handle 64-bit only and new paths
+        run: ./ci/windows/package-windows.cmd
         shell: cmd
+        # ↑ Update your package script to use new paths:
+        #   - OBS build output usually in obs-studio/build/windows-x64/RelWithDebInfo/rundir/RelWithDebInfo
+        #   - Plugin DLLs/libs in your build/ folder
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
