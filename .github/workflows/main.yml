@@ -27,7 +27,7 @@ jobs:
       OBSPath: 'D:\obs-studio'
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true
 
@@ -38,7 +38,7 @@ jobs:
           QtBaseDir: ${{ env.QtBaseDir }}
 
       - name: Cache OBS Studio dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ env.DepsBasePath }}
           key: obsdeps-${{ runner.os }}-${{ hashFiles('ci/windows/download-obs-deps.cmd') }}
@@ -48,7 +48,7 @@ jobs:
         shell: cmd
 
       - name: Cache OBS Studio builds
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ env.OBSPath }}
           key: obs-${{ runner.os }}-${{ hashFiles('ci/windows/prepare-obs-windows.cmd') }}
@@ -65,7 +65,7 @@ jobs:
           OBSPath: ${{ env.OBSPath }}
 
       - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v1
+        uses: microsoft/setup-msbuild@v2
 
       - name: Build OBS Studio 32-bit
         run: msbuild /m /p:Configuration=${{ env.build_config }} ${{ env.OBSPath }}\build32\obs-studio.sln
@@ -97,7 +97,7 @@ jobs:
         shell: cmd
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: windows_build
           path: ./package
