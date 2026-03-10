@@ -19,10 +19,10 @@ jobs:
     env:
       build_config: RelWithDebInfo
       DepsBasePath: 'D:\obs-deps'
-      DepsPath: 'D:\obs-deps'                  # Flat extraction root
+      DepsPath: 'D:\obs-deps'
       QtBaseDir: 'D:\Qt'
-      QTDIR: 'D:\Qt'                           # Flat extraction root
-      OBS_INSTALL_DIR: 'D:\obs-install'        # Pre-built portable OBS extraction
+      QTDIR: 'D:\Qt'
+      OBS_INSTALL_DIR: 'D:\obs-install'
     steps:
       - name: Checkout Plugin
         uses: actions/checkout@v4
@@ -34,7 +34,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.DepsBasePath }}
-          key: obs-deps-${{ runner.os }}-${{ hashFiles('ci/windows/download-obs-deps.cmd') }}  # Update if script changes
+          key: obs-deps-${{ runner.os }}-${{ hashFiles('ci/windows/download-obs-deps.cmd') }}
 
       - name: Download & Extract OBS Dependencies
         if: steps.cache-deps.outputs.cache-hit != 'true'
@@ -43,8 +43,7 @@ jobs:
           Invoke-WebRequest -Uri "https://github.com/obsproject/obs-deps/releases/download/2025-08-23/windows-deps-2025-08-23-x64.zip" -OutFile "deps.zip"
           Expand-Archive -Path "deps.zip" -DestinationPath "${{ env.DepsBasePath }}" -Force
           Remove-Item "deps.zip" -Force
-          # Optional debug
-          Get-ChildItem "${{ env.DepsBasePath }}" -Recurse | Select-Object FullName
+          Get-ChildItem "${{ env.DepsBasePath }}" -Recurse | Select-Object -ExpandProperty FullName
         shell: pwsh
 
       - name: Cache Qt6
@@ -61,8 +60,7 @@ jobs:
           Invoke-WebRequest -Uri "https://github.com/obsproject/obs-deps/releases/download/2025-08-23/windows-deps-qt6-2025-08-23-x64-RelWithDebInfo.zip" -OutFile "qt.zip"
           Expand-Archive -Path "qt.zip" -DestinationPath "${{ env.QtBaseDir }}" -Force
           Remove-Item "qt.zip" -Force
-          # Optional debug
-          Get-ChildItem "${{ env.QtBaseDir }}" -Recurse | Select-Object FullName
+          Get-ChildItem "${{ env.QtBaseDir }}" -Recurse | Select-Object -ExpandProperty FullName
         shell: pwsh
 
       - name: Download & Extract Pre-built OBS Portable ZIP
@@ -71,8 +69,8 @@ jobs:
           Invoke-WebRequest -Uri "https://cdn-fastly.obsproject.com/downloads/OBS-Studio-32.0.4-Windows-x64.zip" -OutFile "obs.zip"
           Expand-Archive -Path "obs.zip" -DestinationPath "${{ env.OBS_INSTALL_DIR }}" -Force
           Remove-Item "obs.zip" -Force
-          # Debug: Verify structure (look for bin/64bit/obs64.exe, include/obs-module.h, lib/obs.lib etc.)
-          dir "${{ env.OBS_INSTALL_DIR }}" /s /b
+          # Fixed debug listing
+          Get-ChildItem "${{ env.OBS_INSTALL_DIR }}" -Recurse | Select-Object -ExpandProperty FullName
         shell: pwsh
 
       - name: Add MSBuild to PATH
@@ -85,12 +83,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ env.build_config }} ^
             -DCMAKE_PREFIX_PATH="${{ env.QTDIR }};${{ env.DepsPath }};${{ env.OBS_INSTALL_DIR }}" ^
             -DOBS_INCLUDE_DIR="${{ env.OBS_INSTALL_DIR }}\include" ^
-            -DOBS_LIB="${{ env.OBS_INSTALL_DIR }}\lib\obs.lib" ^
-            # If your plugin needs more explicit paths (common for legacy plugins):
-            # -DOBS_FRONTEND_LIB="${{ env.OBS_INSTALL_DIR }}\lib\obs-frontend-api.lib" ^
-            # Or if using find_package(libobs):
-            #   Ensure your CMakeLists.txt has find_package(libobs REQUIRED) and add -DCMAKE_MODULE_PATH if needed
-            # Add any other plugin-specific CMake variables here
+            -DOBS_LIB="${{ env.OBS_INSTALL_DIR }}\lib\obs.lib"
         shell: cmd
 
       - name: Build Plugin
@@ -102,9 +95,6 @@ jobs:
         shell: cmd
         env:
           OBS_INSTALL_DIR: ${{ env.OBS_INSTALL_DIR }}
-          # If your package script needs specific OBS paths (e.g. for copying binaries or rundir):
-          # OBS_BIN_DIR: ${{ env.OBS_INSTALL_DIR }}\bin\64bit
-          # OBS_DATA_DIR: ${{ env.OBS_INSTALL_DIR }}\data
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
