@@ -96,6 +96,11 @@ if(LIBOBS_FOUND)
 	set(LIBOBS_INCLUDE_DIRS ${LIBOBS_INCLUDE_DIR} ${W32_PTHREADS_INCLUDE_DIR})
 	set(LIBOBS_LIBRARIES ${LIBOBS_LIB} ${W32_PTHREADS_LIB})
 
+	# Modern OBS generates obsconfig.h in the build config directory
+	if(DEFINED OBS_BUILD_DIR AND EXISTS "${OBS_BUILD_DIR}/config")
+		list(APPEND LIBOBS_INCLUDE_DIRS "${OBS_BUILD_DIR}/config")
+	endif()
+
 	set(_obs_plugin_helpers "${LIBOBS_INCLUDE_DIR}/../cmake/external/ObsPluginHelpers.cmake")
 	if(EXISTS "${_obs_plugin_helpers}")
 		include("${_obs_plugin_helpers}")

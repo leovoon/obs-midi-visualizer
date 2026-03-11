@@ -67,7 +67,8 @@ jobs:
             -DLIBOBS_INCLUDE_DIR="%OBS_PATH%\libobs" ^
             -DLIBOBS_LIB="%OBS_PATH%\build_x64\libobs\%build_config%\obs.lib" ^
             -DW32_PTHREADS_LIB="%OBS_PATH%\build_x64\deps\w32-pthreads\%build_config%\w32-pthreads.lib" ^
-            -DOBS_FRONTEND_LIB="%OBS_PATH%\build_x64\UI\obs-frontend-api\%build_config%\obs-frontend-api.lib"
+            -DOBS_FRONTEND_LIB="%OBS_PATH%\build_x64\UI\obs-frontend-api\%build_config%\obs-frontend-api.lib" ^
+            -DOBS_BUILD_DIR="%OBS_PATH%\build_x64"
         shell: cmd
 
       - name: Build Plugin
