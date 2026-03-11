@@ -95,7 +95,34 @@ if(LIBOBS_FOUND)
 
 	set(LIBOBS_INCLUDE_DIRS ${LIBOBS_INCLUDE_DIR} ${W32_PTHREADS_INCLUDE_DIR})
 	set(LIBOBS_LIBRARIES ${LIBOBS_LIB} ${W32_PTHREADS_LIB})
-	include(${LIBOBS_INCLUDE_DIR}/../cmake/external/ObsPluginHelpers.cmake)
+
+	# Modern OBS generates obsconfig.h in the build config directory
+	if(DEFINED OBS_BUILD_DIR AND EXISTS "${OBS_BUILD_DIR}/config")
+		list(APPEND LIBOBS_INCLUDE_DIRS "${OBS_BUILD_DIR}/config")
+	endif()
+
+	set(_obs_plugin_helpers "${LIBOBS_INCLUDE_DIR}/../cmake/external/ObsPluginHelpers.cmake")
+	if(EXISTS "${_obs_plugin_helpers}")
+		include("${_obs_plugin_helpers}")
+	endif()
+	unset(_obs_plugin_helpers)
+
+	if(NOT TARGET libobs)
+		add_library(libobs SHARED IMPORTED)
+		set_target_properties(libobs PROPERTIES
+			INTERFACE_INCLUDE_DIRECTORIES "${LIBOBS_INCLUDE_DIRS}"
+		)
+		if(MSVC)
+			set_target_properties(libobs PROPERTIES
+				IMPORTED_IMPLIB "${LIBOBS_LIB}"
+				INTERFACE_LINK_LIBRARIES "${W32_PTHREADS_LIB}"
+			)
+		else()
+			set_target_properties(libobs PROPERTIES
+				IMPORTED_LOCATION "${LIBOBS_LIB}"
+			)
+		endif()
+	endif()
 
 	# allows external plugins to easily use/share common dependencies that are often included with libobs (such as FFmpeg)
 	if(NOT DEFINED INCLUDED_LIBOBS_CMAKE_MODULES)

@@ -27,11 +27,12 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (WIN32 OR APPLE)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/external")
 include(external/FindLibObs.cmake)
 endif()
 
 find_package(LibObs REQUIRED)
-find_package(Qt5 REQUIRED COMPONENTS Core Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 
 configure_file(
     src/plugin-macros.h.in
@@ -65,15 +66,13 @@ set(PLUGIN_HEADERS
 add_library(${CMAKE_PROJECT_NAME} MODULE ${PLUGIN_SOURCES} ${PLUGIN_HEADERS})
 
 include_directories(
-	"${LIBOBS_INCLUDE_DIR}/../UI/obs-frontend-api"
-	${Qt5Core_INCLUDES}
-	${Qt5Widgets_INCLUDES}
+	"${LIBOBS_INCLUDE_DIR}/../frontend/api"
 )
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
 	libobs
-	Qt5::Core
-	Qt5::Widgets
+	Qt6::Core
+	Qt6::Widgets
 )
 
 # --- End of section ---
