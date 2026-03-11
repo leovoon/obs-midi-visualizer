@@ -66,7 +66,7 @@ set(PLUGIN_HEADERS
 add_library(${CMAKE_PROJECT_NAME} MODULE ${PLUGIN_SOURCES} ${PLUGIN_HEADERS})
 
 include_directories(
-	"${LIBOBS_INCLUDE_DIR}/../UI/obs-frontend-api"
+	"${LIBOBS_INCLUDE_DIR}/../frontend/api"
 )
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
